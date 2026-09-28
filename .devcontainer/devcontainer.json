@@ -1,0 +1,32 @@
+{
+  "name": "Astra Parts Hub — Copilot Workshop",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-24-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/azure-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "GitHub.vscode-github-actions",
+        "GitHub.vscode-pull-request-github",
+        "ms-azuretools.vscode-azureappservice",
+        "42Crunch.vscode-openapi"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "files.eol": "\n",
+        "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+        "chat.promptFiles": true,
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "containerEnv": { "AUTH_DISABLED": "true" },
+  "postCreateCommand": "npm install && npm run seed",
+  "forwardPorts": [3000],
+  "portsAttributes": { "3000": { "label": "Astra Parts Hub", "onAutoForward": "openPreview" } },
+  "remoteUser": "node"
+}

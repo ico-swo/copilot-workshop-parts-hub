@@ -1,0 +1,40 @@
+name: Copilot task
+description: A scoped task that can be assigned to the Copilot coding agent
+title: "[task] "
+labels: ["copilot-task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep the scope small. A task the agent can finish in one pull request
+        produces a pull request a human can actually review.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What must be true when this is done? One observable result.
+      placeholder: The service exposes GET /health returning status, version and uptimeSeconds.
+    validations: { required: true }
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Which files define the pattern to follow?
+      placeholder: Follow src/modules/parts/routes.ts and register in src/app.ts. Document it in src/openapi.ts.
+    validations: { required: true }
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: What must not change? What is out of scope?
+      placeholder: No new dependencies. Do not modify the parts module. The route is public - no API key required.
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How will a reviewer verify this? Name the tests and commands.
+      placeholder: |
+        - npm test passes and npm run typecheck is clean
+        - The skipped /health test in tests/api.test.ts is enabled and passes
+    validations: { required: true }

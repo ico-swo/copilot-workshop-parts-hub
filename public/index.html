@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Astra Parts Hub</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <div>
+          <h1>Astra Parts Hub</h1>
+          <p class="subtitle">Catalogue, suppliers and procurement</p>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <span class="role-badge" id="role-badge" data-role="none">Checking…</span>
+        <label class="key-field">
+          <span>API key</span>
+          <input id="api-key" type="password" placeholder="Bearer token" autocomplete="off" />
+        </label>
+        <div class="status" id="service-status" data-state="unknown">Checking service…</div>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-view="catalogue" aria-selected="true">Catalogue</button>
+      <button class="tab" role="tab" data-view="reorder" aria-selected="false">Reorder list</button>
+      <button class="tab" role="tab" data-view="orders" aria-selected="false">Purchase orders</button>
+      <button class="tab" role="tab" data-view="suppliers" aria-selected="false">Suppliers</button>
+      <button class="tab" role="tab" data-view="audit" aria-selected="false">Audit trail</button>
+    </nav>
+
+    <main>
+      <section class="metrics" aria-label="Inventory summary">
+        <article class="metric">
+          <span class="metric-value" id="metric-total">—</span>
+          <span class="metric-label">Parts in catalogue</span>
+        </article>
+        <article class="metric metric-alert">
+          <span class="metric-value" id="metric-reorder">—</span>
+          <span class="metric-label">At or below reorder level</span>
+        </article>
+        <article class="metric">
+          <span class="metric-value" id="metric-value">—</span>
+          <span class="metric-label">Stock value</span>
+        </article>
+        <article class="metric">
+          <span class="metric-value" id="metric-open-orders">—</span>
+          <span class="metric-label">Awaiting approval</span>
+        </article>
+        <article class="metric">
+          <span class="metric-value" id="metric-warehouses">—</span>
+          <span class="metric-label">Warehouses</span>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2 id="panel-title">Catalogue</h2>
+          <div class="panel-tools">
+            <div class="controls" id="controls"></div>
+            <div class="panel-action" id="panel-action"></div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead id="table-head"></thead>
+            <tbody id="table-body">
+              <tr><td class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pager">
+          <span id="page-info">—</span>
+          <button id="prev" type="button">Previous</button>
+          <button id="next" type="button">Next</button>
+        </div>
+      </section>
+
+      <!--
+        Lab 2: once the stock request module exists, add a tab here that lists
+        open requests and lets a warehouse operator approve one.
+      -->
+    </main>
+
+    <div class="modal-overlay" id="modal-overlay" hidden></div>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

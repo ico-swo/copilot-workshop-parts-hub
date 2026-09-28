@@ -1,0 +1,33 @@
+# Reference only. In Lab 3 you generate this file with Copilot; use this to
+# compare afterwards. Save the real file as .github/workflows/ci.yml.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
