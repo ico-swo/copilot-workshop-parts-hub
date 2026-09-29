@@ -26,7 +26,8 @@ export interface RouteDefinition {
 }
 
 export interface RouterOptions {
-  authenticate: (req: IncomingMessage) => Actor;
+  preAuthRateLimit: (req: IncomingMessage) => void;
+  authenticate: (req: IncomingMessage) => Promise<Actor>;
   authorize: (actor: Actor, required: Role) => void;
   rateLimit: (actor: Actor) => void;
 }
@@ -121,7 +122,8 @@ export function createRouter(routes: RouteDefinition[], options: RouterOptions) 
         // A route without a `requires` declaration is public by design: the
         // dashboard assets, the OpenAPI document and /health. Everything else
         // authenticates before the handler is reached.
-        const actor = route.requires ? options.authenticate(req) : ANONYMOUS_VIEWER;
+        if (route.requires) options.preAuthRateLimit(req);
+        const actor = route.requires ? await options.authenticate(req) : ANONYMOUS_VIEWER;
         options.rateLimit(actor);
         if (route.requires) options.authorize(actor, route.requires);
 

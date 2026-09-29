@@ -45,6 +45,7 @@ export function createApp(db: DatabaseSync) {
   ];
 
   return createRouter(routes, {
+    preAuthRateLimit: auth.preAuthRateLimit,
     authenticate: auth.authenticate,
     authorize: auth.authorize,
     rateLimit: auth.rateLimit,

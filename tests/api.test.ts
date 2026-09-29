@@ -39,6 +39,26 @@ describe("authentication and authorisation", () => {
     assert.equal(response.status, 401);
   });
 
+  test("keeps public routes responsive during invalid key verification", async () => {
+    const invalid = fetch(`${server.url}/api/parts`, {
+      headers: { Authorization: ["Bearer", "invalid-key"].join(" ") },
+    });
+    const health = fetch(`${server.url}/health`);
+    assert.equal(await Promise.race([invalid.then(() => "invalid"), health.then(() => "health")]), "health");
+    assert.equal((await health).status, 200);
+    assert.equal((await invalid).status, 401);
+  });
+
+  test("caps concurrent unauthenticated key checks", async () => {
+    const responses = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        fetch(`${server.url}/api/parts`, { headers: { Authorization: ["Bearer", "invalid-key"].join(" ") } }),
+      ),
+    );
+    assert.ok(responses.some((response) => response.status === 429));
+    assert.ok(responses.every((response) => response.status === 401 || response.status === 429));
+  });
+
   test("rejects a non-Bearer scheme", async () => {
     const response = await fetch(`${server.url}/api/parts`, {
       headers: { Authorization: "Basic dXNlcjpwYXNz" },

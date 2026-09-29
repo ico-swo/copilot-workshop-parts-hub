@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
-import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomUUID, randomBytes, scrypt, scryptSync, timingSafeEqual } from "node:crypto";
+import { AppError } from "../../core/errors.ts";
 import type { Role } from "./types.ts";
 
 export interface ApiKeyRecord {
@@ -38,6 +39,13 @@ function toRecord(row: ApiKeyRow): ApiKeyRecord {
   };
 }
 
+function parseHash(value: string): { salt: Buffer; digest: Buffer } | undefined {
+  const parts = /^([0-9a-f]{32}):([0-9a-f]{128})$/.exec(value);
+  // Legacy unsalted SHA-256 digests cannot be verified securely; reissue those keys.
+  if (!parts) return undefined;
+  return { salt: Buffer.from(parts[1] as string, "hex"), digest: Buffer.from(parts[2] as string, "hex") };
+}
+
 export class ApiKeyRepository {
   readonly #db: DatabaseSync;
 
@@ -46,6 +54,13 @@ export class ApiKeyRepository {
   }
 
   issue(name: string, role: Role, plaintext: string): ApiKeyRecord {
+    const rows = this.#db.prepare("SELECT key_hash FROM api_keys").all() as { key_hash: string }[];
+    for (const row of rows) {
+      const stored = parseHash(row.key_hash);
+      if (stored && timingSafeEqual(stored.digest, scryptSync(plaintext, stored.salt, stored.digest.length))) {
+        throw AppError.conflict("duplicate_api_key", "This API key has already been issued");
+      }
+    }
     const id = randomUUID();
     const now = new Date().toISOString();
     this.#db
@@ -68,22 +83,28 @@ export class ApiKeyRepository {
    * Compared with timingSafeEqual rather than by SQL equality, so a lookup
    * does not leak timing information about the key.
    */
-  findByPlaintext(plaintext: string): ApiKeyRecord | undefined {
+  async findByPlaintext(plaintext: string): Promise<ApiKeyRecord | undefined> {
     const rows = this.#db
-      .prepare("SELECT * FROM api_keys WHERE is_active = 1")
+      .prepare("SELECT * FROM api_keys")
       .all() as unknown as ApiKeyRow[];
+    let match: ApiKeyRow | undefined;
 
     for (const row of rows) {
-      const [saltHex, hashHex] = row.key_hash.split(":");
-      // Legacy unsalted SHA-256 digests cannot be verified securely; reissue those keys.
-      if (!saltHex || !hashHex || !/^[0-9a-f]{32}$/.test(saltHex) || !/^[0-9a-f]{128}$/.test(hashHex)) continue;
-      const stored = Buffer.from(hashHex, "hex");
-      const candidate = scryptSync(plaintext, Buffer.from(saltHex, "hex"), stored.length);
-      if (timingSafeEqual(stored, candidate)) {
-        return toRecord(row);
+      const stored = parseHash(row.key_hash);
+      if (!stored) continue;
+      const candidate = await new Promise<Buffer>((resolve, reject) => {
+        scrypt(plaintext, stored.salt, stored.digest.length, (error, derived) =>
+          error ? reject(error) : resolve(derived),
+        );
+      });
+      if (timingSafeEqual(stored.digest, candidate)) {
+        // Reject pre-existing duplicate keys, including revoked copies, rather than
+        // letting row order determine identity or undo a revocation.
+        if (match) return undefined;
+        match = row;
       }
     }
-    return undefined;
+    return match?.is_active === 1 ? toRecord(match) : undefined;
   }
 
   touch(id: string): void {

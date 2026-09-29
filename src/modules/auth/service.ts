@@ -15,12 +15,29 @@ import { ANONYMOUS_VIEWER, ROLE_RANK, type Actor, type Role } from "./types.ts";
 export class AuthService {
   readonly #repository: ApiKeyRepository;
   readonly #buckets = new Map<string, { count: number; windowStart: number }>();
+  readonly #preAuthBuckets = new Map<string, { count: number; windowStart: number }>();
+  #pendingAuthentications = 0;
 
   constructor(db: DatabaseSync) {
     this.#repository = new ApiKeyRepository(db);
   }
 
-  authenticate = (req: IncomingMessage): Actor => {
+  preAuthRateLimit = (req: IncomingMessage): void => {
+    const address = req.socket.remoteAddress ?? "unknown";
+    const now = Date.now();
+    const windowMs = 60_000;
+    const bucket = this.#preAuthBuckets.get(address);
+    if (!bucket || now - bucket.windowStart >= windowMs) {
+      this.#preAuthBuckets.set(address, { count: 1, windowStart: now });
+      return;
+    }
+    bucket.count += 1;
+    if (bucket.count > config.rateLimitPerMinute) {
+      throw AppError.tooManyRequests(Math.ceil((bucket.windowStart + windowMs - now) / 1000));
+    }
+  };
+
+  authenticate = async (req: IncomingMessage): Promise<Actor> => {
     const header = req.headers["authorization"];
 
     if (typeof header !== "string" || header.length === 0) {
@@ -33,7 +50,15 @@ export class AuthService {
       throw AppError.unauthorized("Authorization must use the Bearer scheme");
     }
 
-    const key = this.#repository.findByPlaintext(token);
+    // Bound queued scrypt work as well as limiting attempts per remote address.
+    if (this.#pendingAuthentications >= 4) throw AppError.tooManyRequests(1);
+    this.#pendingAuthentications += 1;
+    let key;
+    try {
+      key = await this.#repository.findByPlaintext(token);
+    } finally {
+      this.#pendingAuthentications -= 1;
+    }
     if (!key) throw AppError.unauthorized("The API key is not valid or has been revoked");
 
     this.#repository.touch(key.id);
