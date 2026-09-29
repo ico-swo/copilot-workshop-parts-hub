@@ -1,5 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
+import { createHmac, randomBytes } from "node:crypto";
 import { AppError } from "../../core/errors.ts";
 import { config } from "../../config.ts";
 import { ApiKeyRepository } from "./repository.ts";
@@ -16,6 +17,7 @@ export class AuthService {
   readonly #repository: ApiKeyRepository;
   readonly #buckets = new Map<string, { count: number; windowStart: number }>();
   readonly #preAuthBuckets = new Map<string, { count: number; windowStart: number }>();
+  readonly #preAuthFingerprintKey = randomBytes(32);
   #pendingAuthentications = 0;
 
   constructor(db: DatabaseSync) {
@@ -23,12 +25,23 @@ export class AuthService {
   }
 
   preAuthRateLimit = (req: IncomingMessage): void => {
-    const address = req.socket.remoteAddress ?? "unknown";
+    const header = req.headers["authorization"];
+    const value = typeof header === "string" ? header : "";
+    const [scheme, token] = value.split(" ");
+    const fingerprint = createHmac("sha256", this.#preAuthFingerprintKey)
+      .update(scheme === "Bearer" && token ? token : value)
+      .digest("hex");
     const now = Date.now();
     const windowMs = 60_000;
-    const bucket = this.#preAuthBuckets.get(address);
+    const bucket = this.#preAuthBuckets.get(fingerprint);
     if (!bucket || now - bucket.windowStart >= windowMs) {
-      this.#preAuthBuckets.set(address, { count: 1, windowStart: now });
+      this.#preAuthBuckets.delete(fingerprint);
+      // Bound memory even if callers continuously rotate invalid credentials.
+      if (this.#preAuthBuckets.size >= 1024) {
+        const oldest = this.#preAuthBuckets.keys().next().value;
+        if (oldest) this.#preAuthBuckets.delete(oldest);
+      }
+      this.#preAuthBuckets.set(fingerprint, { count: 1, windowStart: now });
       return;
     }
     bucket.count += 1;
