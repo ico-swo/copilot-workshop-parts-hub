@@ -289,7 +289,7 @@ main { padding: 26px 32px 48px; max-width: 1480px; margin: 0 auto; }
   overflow-y: auto;
   z-index: 50;
 }
-
+.modal-overlay[hidden] { display: none; }
 .modal {
   background: var(--surface);
   border: 1px solid var(--stroke);
