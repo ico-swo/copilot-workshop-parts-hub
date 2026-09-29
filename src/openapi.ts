@@ -3,6 +3,7 @@ import { sendJson } from "./http/respond.ts";
 import type { RouteDefinition } from "./http/router.ts";
 import { CATEGORIES, ADJUSTMENT_REASONS } from "./modules/parts/schema.ts";
 import { PO_STATUSES } from "./modules/purchase-orders/schema.ts";
+import { SR_STATUSES } from "./modules/stock-requests/schema.ts";
 
 /**
  * A hand-maintained OpenAPI description.
@@ -41,6 +42,7 @@ function document() {
       { name: "Parts", description: "Catalogue and stock" },
       { name: "Suppliers", description: "Supplier master data" },
       { name: "Purchase orders", description: "Procurement workflow" },
+      { name: "Stock requests", description: "Drawing parts from a warehouse for a job" },
       { name: "Audit", description: "Append-only change history" },
       { name: "Health", description: "Service liveness" },
       { name: "Session", description: "Caller identity and capabilities" },
@@ -226,6 +228,81 @@ function document() {
       },
       "/api/purchase-orders/{id}/cancel": {
         post: { tags: ["Purchase orders"], summary: "Cancel an order with a reason", parameters: [idParam, ifMatch], responses: { "200": { description: "Cancelled" } } },
+      },
+      "/api/stock-requests": {
+        get: {
+          tags: ["Stock requests"],
+          summary: "List stock requests",
+          description: "Sortable by reference, createdAt, quantity, status.",
+          parameters: [
+            ...listParams,
+            { name: "status", in: "query", schema: { type: "string", enum: SR_STATUSES } },
+            { name: "partId", in: "query", schema: { type: "string" } },
+            { name: "requestedBy", in: "query", schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "A page of stock requests" } },
+        },
+        post: {
+          tags: ["Stock requests"],
+          summary: "Raise a stock request",
+          description: "Requires the operator role. Body: partId, quantity (1-500), requestedBy, optional jobReference and note.",
+          responses: {
+            "201": { description: "Created" },
+            "400": { description: "Validation failure, or unknown or inactive part" },
+            "409": { description: "insufficient_stock" },
+          },
+        },
+      },
+      "/api/stock-requests/transitions": {
+        get: {
+          tags: ["Stock requests"],
+          summary: "The allowed state transitions",
+          description: "Served so clients do not hard-code the state machine.",
+          responses: { "200": { description: "A map of status to allowed next statuses" } },
+        },
+      },
+      "/api/stock-requests/{id}": {
+        get: {
+          tags: ["Stock requests"],
+          summary: "Get a stock request",
+          parameters: [idParam],
+          responses: { "200": { description: "A stock request" }, "404": { description: "Not found" } },
+        },
+      },
+      "/api/stock-requests/{id}/approve": {
+        post: {
+          tags: ["Stock requests"],
+          summary: "Approve a pending request and decrement stock",
+          description: "Requires the operator role. Transactional; availability is re-checked at approval time.",
+          parameters: [idParam, ifMatch],
+          responses: {
+            "200": { description: "Approved" },
+            "409": { description: "insufficient_stock or already_resolved" },
+            "412": { description: "Version conflict" },
+          },
+        },
+      },
+      "/api/stock-requests/{id}/reject": {
+        post: {
+          tags: ["Stock requests"],
+          summary: "Reject a pending request with a reason",
+          description: "Requires the operator role. Body: { reason }.",
+          parameters: [idParam, ifMatch],
+          responses: { "200": { description: "Rejected" }, "409": { description: "already_resolved" } },
+        },
+      },
+      "/api/stock-requests/{id}/cancel": {
+        post: {
+          tags: ["Stock requests"],
+          summary: "Cancel your own pending request",
+          description: "Requires the operator role. Only the person named in requestedBy may cancel.",
+          parameters: [idParam, ifMatch],
+          responses: {
+            "200": { description: "Cancelled" },
+            "403": { description: "Not the requester" },
+            "409": { description: "already_resolved" },
+          },
+        },
       },
       "/api/audit-events": {
         get: {
