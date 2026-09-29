@@ -440,11 +440,7 @@ describe("protocol behaviour", () => {
     assert.ok(Object.keys(document.paths).includes("/api/me"));
   });
 
-  /*
-   * Lab 1 adds GET /health. Remove the skip once the coding agent's pull
-   * request is merged - this test is the acceptance criterion.
-   */
-  test("GET /health reports service status", { skip: "Implemented in Lab 1" }, async () => {
+  test("GET /health reports service status", async () => {
     const response = await fetch(`${server.url}/health`);
     assert.equal(response.status, 200);
 
