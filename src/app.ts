@@ -8,6 +8,8 @@ import { authRoutes } from "./modules/auth/routes.ts";
 import { partsRoutes } from "./modules/parts/routes.ts";
 import { supplierRoutes } from "./modules/suppliers/routes.ts";
 import { purchaseOrderRoutes } from "./modules/purchase-orders/routes.ts";
+import { config } from "./config.ts";
+import { sendJson } from "./http/respond.ts";
 import { openApiRoutes } from "./openapi.ts";
 
 /**
@@ -16,7 +18,6 @@ import { openApiRoutes } from "./openapi.ts";
  * Tests call this with an in-memory database, so no test server ever touches
  * the real data file.
  *
- * Lab 1: the /health route is added here.
  * Lab 2: register stockRequestRoutes(db, audit) here once the module exists.
  */
 export function createApp(db: DatabaseSync) {
@@ -29,6 +30,16 @@ export function createApp(db: DatabaseSync) {
     ...purchaseOrderRoutes(db, audit),
     ...auditRoutes(audit),
     ...authRoutes(auth),
+    {
+      method: "GET",
+      path: "/health",
+      handler: (ctx) =>
+        sendJson(ctx.res, 200, {
+          status: "ok",
+          version: config.version,
+          uptimeSeconds: Math.floor(process.uptime()),
+        }),
+    },
     ...openApiRoutes(),
     ...staticRoutes(),
   ];

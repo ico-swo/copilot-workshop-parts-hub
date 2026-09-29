@@ -42,9 +42,36 @@ function document() {
       { name: "Suppliers", description: "Supplier master data" },
       { name: "Purchase orders", description: "Procurement workflow" },
       { name: "Audit", description: "Append-only change history" },
+      { name: "Health", description: "Service liveness" },
       { name: "Session", description: "Caller identity and capabilities" },
     ],
     paths: {
+      "/health": {
+        get: {
+          tags: ["Health"],
+          summary: "Report service status",
+          description: "Public. Requires no API key.",
+          security: [],
+          responses: {
+            "200": {
+              description: "The service is running",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["status", "version", "uptimeSeconds"],
+                    properties: {
+                      status: { type: "string", enum: ["ok"] },
+                      version: { type: "string", example: "1.0.0" },
+                      uptimeSeconds: { type: "integer", minimum: 0 },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       "/api/me": {
         get: {
           tags: ["Session"],
