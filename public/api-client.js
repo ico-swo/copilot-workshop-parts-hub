@@ -111,6 +111,17 @@ export const api = {
     cancel: (id, body, version) => send("POST", `/api/purchase-orders/${id}/cancel`, { body, version }),
   },
 
+  /* ------------------------------------------------------ stock requests */
+  stockRequests: {
+    list: (params) => send("GET", `/api/stock-requests?${params}`),
+    get: (id) => send("GET", `/api/stock-requests/${id}`),
+    create: (body) => send("POST", "/api/stock-requests", { body }),
+    transitions: () => send("GET", "/api/stock-requests/transitions"),
+    approve: (id, version) => send("POST", `/api/stock-requests/${id}/approve`, { body: {}, version }),
+    reject: (id, body, version) => send("POST", `/api/stock-requests/${id}/reject`, { body, version }),
+    cancel: (id, version) => send("POST", `/api/stock-requests/${id}/cancel`, { body: {}, version }),
+  },
+
   /* --------------------------------------------------------------- audit */
   audit: {
     list: (params) => send("GET", `/api/audit-events?${params}`),
