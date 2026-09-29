@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { randomUUID, createHash, timingSafeEqual } from "node:crypto";
+import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { Role } from "./types.ts";
 
 export interface ApiKeyRecord {
@@ -21,9 +21,10 @@ interface ApiKeyRow {
   last_used_at: string | null;
 }
 
-/** Keys are stored as a SHA-256 digest; the plaintext is shown once at issue time. */
+/** Keys are stored as a salted scrypt digest; the plaintext is shown once at issue time. */
 export function hashKey(plaintext: string): string {
-  return createHash("sha256").update(plaintext, "utf8").digest("hex");
+  const salt = randomBytes(16);
+  return `${salt.toString("hex")}:${scryptSync(plaintext, salt, 64).toString("hex")}`;
 }
 
 function toRecord(row: ApiKeyRow): ApiKeyRecord {
@@ -62,20 +63,23 @@ export class ApiKeyRepository {
   }
 
   /**
-   * Looks up an active key by its digest.
+   * Looks up an active key by its salted digest.
    *
    * Compared with timingSafeEqual rather than by SQL equality, so a lookup
    * does not leak timing information about the key.
    */
   findByPlaintext(plaintext: string): ApiKeyRecord | undefined {
-    const candidate = Buffer.from(hashKey(plaintext), "hex");
     const rows = this.#db
       .prepare("SELECT * FROM api_keys WHERE is_active = 1")
       .all() as unknown as ApiKeyRow[];
 
     for (const row of rows) {
-      const stored = Buffer.from(row.key_hash, "hex");
-      if (stored.length === candidate.length && timingSafeEqual(stored, candidate)) {
+      const [saltHex, hashHex] = row.key_hash.split(":");
+      // Legacy unsalted SHA-256 digests cannot be verified securely; reissue those keys.
+      if (!saltHex || !hashHex || !/^[0-9a-f]{32}$/.test(saltHex) || !/^[0-9a-f]{128}$/.test(hashHex)) continue;
+      const stored = Buffer.from(hashHex, "hex");
+      const candidate = scryptSync(plaintext, Buffer.from(saltHex, "hex"), stored.length);
+      if (timingSafeEqual(stored, candidate)) {
         return toRecord(row);
       }
     }

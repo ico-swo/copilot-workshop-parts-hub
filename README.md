@@ -78,6 +78,11 @@ Set `AUTH_DISABLED=true` for anonymous read-only browsing in a Codespace. Writin
 requires a key. It is deliberately not set in Azure. These are throwaway credentials for
 a disposable environment — never reuse the pattern.
 
+Keys issued before salted scrypt hashing used SHA-256 and will no longer authenticate.
+For an existing workshop database, remove its old `api_keys` rows and rerun `npm run seed`
+to reissue the development keys; reissue any separately managed keys as well. Rerunning
+the seed without removing old rows does not replace keys with the same names.
+
 ## Domain
 
 ```
